@@ -1,72 +1,82 @@
-# FastAPI + React Template
+# Student Internship & Job Opportunity Platform
+### CSE309 Mid Project Assessment – MVP (Internship Opportunity Manager)
 
-FastAPI backend + Vite/React/TypeScript frontend, deployed to Vercel as one project.
+A full-stack web application built for **CSE309 Autumn 2026 Mid Project Assessment**, featuring an **Internship Opportunity Manager** that implements all 5 CRUD operations across both the React + TypeScript frontend and FastAPI Python backend.
 
-```
-backend/    FastAPI app (routes under /api)
-frontend/   Vite + React + TypeScript
-vercel.json Vercel setup: /api/* goes to backend, everything else to frontend
-```
+---
 
-## Requirements
+## 🛠️ Tech Stack
 
-- [Python](https://www.python.org/downloads/) 3.10+
-- [Node.js](https://nodejs.org/) 22+
+- **Frontend:** React 19, TypeScript, Vite, Modern CSS (Responsive Design)
+- **Backend:** Python 3.10+, FastAPI, SQLModel (SQLAlchemy + Pydantic)
+- **Database:** SQLite (local zero-config) / Supabase (PostgreSQL ready)
+- **Deployment:** Vercel configured via `vercel.json`
 
-> On macOS/Linux, use `python3` instead of `python`.
+---
 
-## Run locally
+## 🚀 Getting Started
 
-**Backend** (terminal 1):
-
+### 1. Run Backend (Terminal 1)
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\Activate.ps1      # macOS/Linux: source .venv/bin/activate
+.venv\Scripts\Activate.ps1       # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 fastapi dev main.py
 ```
+> The API will start at `http://localhost:8000`.  
+> Interactive API Swagger Documentation is available at: `http://localhost:8000/docs`.
 
-**Frontend** (terminal 2):
-
+### 2. Run Frontend (Terminal 2)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+> The web application will start at `http://localhost:5173`.  
+> Requests sent to `/api` are automatically proxied to the FastAPI server at `http://localhost:8000`.
 
-Open http://localhost:5173 and click **Say hello**. Vite forwards `/api` requests to the backend on port 8000.
+---
 
-To run it the way Vercel does instead, from the project root:
+## 📋 Implemented CRUD Operations
 
-```bash
-npm install -g vercel
-vercel dev -L
+| Operation | Frontend UI Action | HTTP Method & Endpoint |
+|---|---|---|
+| **Create** | Click "+ Post Internship" button and submit form | `POST /api/internships` |
+| **Read List** | Browse cards, search by keyword, or filter by status | `GET /api/internships` |
+| **Read Single** | Click "View Details" on any internship card | `GET /api/internships/{id}` |
+| **Update** | Click "Edit" on any card and submit updated fields | `PUT /api/internships/{id}` |
+| **Delete** | Click "Delete" on any card and confirm removal | `DELETE /api/internships/{id}` |
+
+---
+
+## 📂 Project Structure
+
+```
+Student-internship-job-opportunity-platform/
+├── backend/
+│   ├── database.py         # DB connection (SQLite / Supabase) and initial seed data
+│   ├── models.py           # SQLModel table definitions and Pydantic schemas
+│   ├── main.py             # FastAPI application with all 5 CRUD endpoints & CORS
+│   ├── requirements.txt    # Python dependencies
+│   └── .env.example        # Environment variables template
+├── frontend/
+│   ├── src/
+│   │   ├── components/     # Navbar, StatsCards, FilterBar, InternshipCard, Modals, Toast
+│   │   ├── services/       # API client for backend communication with fallback
+│   │   ├── types/          # TypeScript interfaces for Internship data
+│   │   ├── App.tsx         # Main application orchestrator
+│   │   ├── index.css       # Clean, modern, responsive styling
+│   │   └── main.tsx        # React root entrypoint
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts      # Vite dev server with /api proxy
+├── VIVA_DEMO_GUIDE.md      # Comprehensive step-by-step viva & demo guide
+├── vercel.json             # Vercel deployment configuration
+└── README.md
 ```
 
-> Add new Python packages to `backend/requirements.txt`.
+---
 
-## Class exercise
-
-Send an ID, name and email from React to FastAPI and show the reply.
-
-1. In `backend/main.py`, uncomment the `EXERCISE (part 1)` block. Try `POST /api/user` at http://localhost:8000/docs.
-2. In `frontend/src/App.tsx`, uncomment `<UserForm />` and the `UserForm` function (`EXERCISE (part 2)`).
-3. Fill in the form at http://localhost:5173 and click **Send**.
-
-Try an invalid email (send it from `/docs`, since the browser blocks it in the form): FastAPI returns `422` without any extra code.
-
-## Deploy to Vercel
-
-1. Push the repo to GitHub.
-2. Go to https://vercel.com/new, import the repo and click **Deploy**. Keep **Root Directory** as `./`.
-
-Every push to `main` redeploys automatically. Or deploy from your machine with `vercel --prod`.
-
-## Troubleshooting
-
-- **"Running scripts is disabled" in PowerShell:** run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
-- **`fastapi` not found:** activate the virtual environment first.
-- **`Request failed: 500` in the app:** the backend isn't running.
-- **App at localhost:8000 shows an old version:** delete `frontend/dist`.
-- **Vercel build fails:** check **Build Logs** in the Vercel dashboard, and make sure `npm run build` works in `frontend/`.
+## 🎓 Viva & Demo Guide
+For complete step-by-step instructions on demonstrating the 5 required features during your viva assessment (DevTools request flow, Swagger `/docs`, Postman requests, and database schema), see [`VIVA_DEMO_GUIDE.md`](./VIVA_DEMO_GUIDE.md).

@@ -1,94 +1,317 @@
-import { type FormEvent, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react";
+import {
+  Internship,
+  InternshipCreateInput,
+  InternshipUpdateInput,
+  InternshipStats,
+} from "./types/internship";
+import {
+  fetchInternships,
+  createInternship,
+  updateInternship,
+  deleteInternship,
+  fetchStats,
+  checkBackendHealth,
+  resetDatabaseSeed,
+} from "./services/api";
+import { Navbar } from "./components/Navbar";
+import { StatsCards } from "./components/StatsCards";
+import { FilterBar } from "./components/FilterBar";
+import { InternshipCard } from "./components/InternshipCard";
+import { InternshipDetailModal } from "./components/InternshipDetailModal";
+import { InternshipFormModal } from "./components/InternshipFormModal";
+import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
+import { Toast, ToastMessage } from "./components/Toast";
 
 export default function App() {
-  const [name, setName] = useState("")
-  const [message, setMessage] = useState("")
-  const [error, setError] = useState("")
+  const [internships, setInternships] = useState<Internship[]>([]);
+  const [stats, setStats] = useState<InternshipStats>({
+    total: 0,
+    open: 0,
+    closed: 0,
+    remote: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [isBackendConnected, setIsBackendConnected] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError("")
+  // Filters & Sorting
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [sortBy, setSortBy] = useState("newest");
+
+  // Modals state
+  const [selectedDetail, setSelectedDetail] = useState<Internship | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingInternship, setEditingInternship] = useState<Internship | null>(
+    null
+  );
+  const [deleteTarget, setDeleteTarget] = useState<Internship | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Notifications
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (type: "success" | "error" | "info", message: string) => {
+    const newToast: ToastMessage = {
+      id: crypto.randomUUID(),
+      type,
+      message,
+    };
+    setToasts((prev) => [...prev, newToast]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Load data function
+  const loadData = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ name: name || "World" })
-      const res = await fetch(`/api/hello?${params}`)
-      if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-      const data: { message: string } = await res.json()
-      setMessage(data.message)
+      setLoading(true);
+      const isOnline = await checkBackendHealth();
+      setIsBackendConnected(isOnline);
+
+      const [internshipsRes, statsRes] = await Promise.all([
+        fetchInternships(search, statusFilter),
+        fetchStats(),
+      ]);
+
+      setInternships(internshipsRes.data);
+      setStats(statsRes);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      console.error("Error loading data:", err);
+      addToast("error", "Failed to load internship opportunities.");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // CREATE (C in CRUD)
+  async function handleCreate(payload: InternshipCreateInput) {
+    try {
+      const res = await createInternship(payload);
+      addToast(
+        "success",
+        `Created "${res.data.title}" successfully (POST /api/internships)`
+      );
+      await loadData();
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof Error ? err.message : "Failed to create internship"
+      );
+      throw err;
     }
   }
 
-  return (
-    <main>
-      <h1>FastAPI + React</h1>
-      <form onSubmit={handleSubmit}>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your name"
-        />
-        <button type="submit">Say hello</button>
-      </form>
-      {message && <p>{message}</p>}
-      {error && <p className="error">{error}</p>}
-      {/* EXERCISE (part 2): uncomment <UserForm /> and the UserForm function below. */}
-      {/* <UserForm /> */}
-    </main>
-  )
-}
+  // UPDATE (U in CRUD)
+  async function handleUpdate(id: string, payload: InternshipUpdateInput) {
+    try {
+      const res = await updateInternship(id, payload);
+      addToast(
+        "success",
+        `Updated "${res.data.title}" successfully (PUT /api/internships/${id})`
+      );
+      await loadData();
+      if (selectedDetail && selectedDetail.id === id) {
+        setSelectedDetail(res.data);
+      }
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof Error ? err.message : "Failed to update internship"
+      );
+      throw err;
+    }
+  }
 
-// function UserForm() {
-//   const [form, setForm] = useState({ id: "", name: "", email: "" })
-//   const [reply, setReply] = useState("")
-//   const [error, setError] = useState("")
-//
-//   async function handleSubmit(e: FormEvent) {
-//     e.preventDefault()
-//     setError("")
-//     setReply("")
-//     try {
-//       const res = await fetch("/api/user", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify({ ...form, id: Number(form.id) }),
-//       })
-//       if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-//       const data: { message: string } = await res.json()
-//       setReply(data.message)
-//     } catch (err) {
-//       setError(err instanceof Error ? err.message : "Something went wrong")
-//     }
-//   }
-//
-//   return (
-//     <section>
-//       <h2>Send your details</h2>
-//       <form onSubmit={handleSubmit}>
-//         <input
-//           type="number"
-//           value={form.id}
-//           onChange={(e) => setForm({ ...form, id: e.target.value })}
-//           placeholder="ID"
-//           required
-//         />
-//         <input
-//           value={form.name}
-//           onChange={(e) => setForm({ ...form, name: e.target.value })}
-//           placeholder="Name"
-//           required
-//         />
-//         <input
-//           type="email"
-//           value={form.email}
-//           onChange={(e) => setForm({ ...form, email: e.target.value })}
-//           placeholder="Email"
-//           required
-//         />
-//         <button type="submit">Send</button>
-//       </form>
-//       {reply && <p>{reply}</p>}
-//       {error && <p className="error">{error}</p>}
-//     </section>
-//   )
-// }
+  // DELETE (D in CRUD)
+  async function handleConfirmDelete(id: string) {
+    try {
+      setIsDeleting(true);
+      await deleteInternship(id);
+      addToast("success", `Opportunity deleted (DELETE /api/internships/${id})`);
+      setDeleteTarget(null);
+      if (selectedDetail && selectedDetail.id === id) {
+        setSelectedDetail(null);
+      }
+      await loadData();
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof Error ? err.message : "Failed to delete internship"
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  // RESET DEMO SEED
+  async function handleResetSeed() {
+    try {
+      setLoading(true);
+      await resetDatabaseSeed();
+      addToast(
+        "info",
+        "Sample database re-seeded with 5 realistic demo opportunities!"
+      );
+      await loadData();
+    } catch (err) {
+      addToast("error", "Failed to reset demo data.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Sorted list
+  const sortedInternships = useMemo(() => {
+    const list = [...internships];
+    if (sortBy === "title") {
+      return list.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    if (sortBy === "company") {
+      return list.sort((a, b) => a.company_name.localeCompare(b.company_name));
+    }
+    if (sortBy === "deadline") {
+      return list.sort((a, b) => a.deadline.localeCompare(b.deadline));
+    }
+    // default newest
+    return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  }, [internships, sortBy]);
+
+  return (
+    <div className="app-shell">
+      <Navbar
+        onOpenCreate={() => {
+          setEditingInternship(null);
+          setIsFormOpen(true);
+        }}
+        isBackendConnected={isBackendConnected}
+        onRefresh={loadData}
+      />
+
+      <main className="main-content">
+        <div className="page-header">
+          <div>
+            <h2 className="page-title">Internship Opportunity Manager</h2>
+            <p className="page-subtitle">
+              Manage student job listings, internships, requirements, and deadlines.
+            </p>
+          </div>
+        </div>
+
+        {/* Aggregate Stats (Read Aggregation) */}
+        <StatsCards
+          stats={stats}
+          onFilterStatus={(status) => setStatusFilter(status)}
+          activeStatus={statusFilter}
+        />
+
+        {/* Search, Filter, Sort & Reset Bar */}
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          onResetSeed={handleResetSeed}
+          totalResults={sortedInternships.length}
+        />
+
+        {/* Content Listing (Read List) */}
+        {loading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading internship opportunities...</p>
+          </div>
+        ) : sortedInternships.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">📂</div>
+            <h3>No Internship Opportunities Found</h3>
+            <p>
+              {search
+                ? `No results matching "${search}". Try adjusting your keywords.`
+                : "No internships match the selected filter."}
+            </p>
+            <div className="empty-actions">
+              {search && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setSearch("")}
+                >
+                  Clear Search
+                </button>
+              )}
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setEditingInternship(null);
+                  setIsFormOpen(true);
+                }}
+              >
+                + Post New Internship
+              </button>
+              <button className="btn btn-outline" onClick={handleResetSeed}>
+                ⚡ Load Sample Records
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="cards-grid">
+            {sortedInternships.map((internship) => (
+              <InternshipCard
+                key={internship.id}
+                internship={internship}
+                onViewDetails={(item) => setSelectedDetail(item)}
+                onEdit={(item) => {
+                  setEditingInternship(item);
+                  setIsFormOpen(true);
+                }}
+                onDelete={(item) => setDeleteTarget(item)}
+              />
+            ))}
+          </div>
+        )}
+
+
+      </main>
+
+      {/* MODALS */}
+      <InternshipDetailModal
+        internship={selectedDetail}
+        onClose={() => setSelectedDetail(null)}
+        onEdit={(item) => {
+          setEditingInternship(item);
+          setIsFormOpen(true);
+        }}
+        onDelete={(item) => setDeleteTarget(item)}
+      />
+
+      <InternshipFormModal
+        isOpen={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditingInternship(null);
+        }}
+        onSubmitCreate={handleCreate}
+        onSubmitUpdate={handleUpdate}
+        editingInternship={editingInternship}
+      />
+
+      <DeleteConfirmModal
+        internship={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+      />
+
+      {/* TOAST ALERTS */}
+      <Toast toasts={toasts} onDismiss={removeToast} />
+    </div>
+  );
+}
