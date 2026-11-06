@@ -20,6 +20,9 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
@@ -53,7 +56,29 @@ app = FastAPI(
     description="RESTful API implementing full CRUD operations for Internship Opportunities (CSE309 MVP)",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
+
+# Swagger UI & OpenAPI schema under /api prefix for Vercel /api/docs compatibility
+@app.get("/api/docs", include_in_schema=False)
+def api_swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url="/api/openapi.json",
+        title=app.title + " - Swagger UI",
+    )
+
+@app.get("/api/redoc", include_in_schema=False)
+def api_redoc_ui():
+    return get_redoc_html(
+        openapi_url="/api/openapi.json",
+        title=app.title + " - ReDoc",
+    )
+
+@app.get("/api/openapi.json", include_in_schema=False)
+def api_openapi():
+    return JSONResponse(get_openapi(title=app.title, version=app.version, routes=app.routes, description=app.description))
 
 # Enable CORS for frontend integration
 app.add_middleware(
