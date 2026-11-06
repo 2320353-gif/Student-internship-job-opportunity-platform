@@ -229,6 +229,12 @@ body {
   margin-bottom: 2rem;
 }
 
+
+.stat-total { border-top: 3px solid #3b82f6; }
+.stat-open { border-top: 3px solid #10b981; }
+.stat-closed { border-top: 3px solid #8b5cf6; }
+.stat-remote { border-top: 3px solid #06b6d4; }
+
 .stat-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -595,13 +601,15 @@ body {
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #ffffff;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -1030,60 +1038,151 @@ body {
   font-size: 0.78rem;
 }
 
-/* Toast Alerts */
+/* Modern Toast Alerts */
 .toast-container {
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  z-index: 200;
-  max-width: 400px;
+  gap: 0.75rem;
+  z-index: 9999;
+  max-width: 440px;
+  pointer-events: none;
 }
 
 .toast-card {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.95rem 1.15rem;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s ease;
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateY(16px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.toast-icon-wrap {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.85rem 1.15rem;
-  border-radius: var(--radius-md);
-  background: #ffffff;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border-subtle);
-  animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  justify-content: center;
+  margin-top: 1px;
 }
 
-@keyframes slideInRight {
-  from { transform: translateX(40px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+.toast-success .toast-icon-wrap {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
 }
 
-.toast-success {
-  border-left: 4px solid var(--emerald);
+.toast-error .toast-icon-wrap {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
 }
 
-.toast-error {
-  border-left: 4px solid var(--danger);
+.toast-info .toast-icon-wrap {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
 }
 
-.toast-info {
-  border-left: 4px solid var(--primary);
+.toast-svg {
+  width: 18px;
+  height: 18px;
 }
 
-.toast-text {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--text-main);
+.toast-content {
   flex: 1;
+  min-width: 0;
+}
+
+.toast-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.toast-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.toast-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-post {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-put {
+  background: #fefce8;
+  color: #a16207;
+  border: 1px solid #fef08a;
+}
+
+.badge-delete {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge-get {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.toast-message {
+  font-size: 0.82rem;
+  color: #475569;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .toast-close {
-  background: none;
+  flex-shrink: 0;
+  background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: #94a3b8;
   cursor: pointer;
-  font-size: 0.85rem;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.toast-close:hover {
+  background: #f1f5f9;
+  color: #334155;
 }
 
 /* Viva Reference Banner */

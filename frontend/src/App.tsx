@@ -50,11 +50,16 @@ export default function App() {
   // Notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const addToast = (type: "success" | "error" | "info", message: string) => {
+  const addToast = (
+    type: "success" | "error" | "info",
+    message: string,
+    method?: "POST" | "PUT" | "DELETE" | "GET"
+  ) => {
     const newToast: ToastMessage = {
       id: crypto.randomUUID(),
       type,
       message,
+      method,
     };
     setToasts((prev) => [...prev, newToast]);
   };
@@ -107,7 +112,8 @@ export default function App() {
       const res = await createInternship(payload);
       addToast(
         "success",
-        `Created "${res.data.title}" successfully (POST /api/internships)`
+        `Internship "${res.data.title}" posted successfully.`,
+        "POST"
       );
       await loadData();
     } catch (err) {
@@ -125,7 +131,8 @@ export default function App() {
       const res = await updateInternship(id, payload);
       addToast(
         "success",
-        `Updated "${res.data.title}" successfully (PUT /api/internships/${id})`
+        `Internship "${res.data.title}" updated successfully.`,
+        "PUT"
       );
       await loadData();
       if (selectedDetail && selectedDetail.id === id) {
@@ -145,7 +152,11 @@ export default function App() {
     try {
       setIsDeleting(true);
       await deleteInternship(id);
-      addToast("success", `Opportunity deleted (DELETE /api/internships/${id})`);
+      addToast(
+        "success",
+        "Internship opportunity deleted successfully.",
+        "DELETE"
+      );
       setDeleteTarget(null);
       if (selectedDetail && selectedDetail.id === id) {
         setSelectedDetail(null);
