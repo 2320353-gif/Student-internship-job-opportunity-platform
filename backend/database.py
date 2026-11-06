@@ -1,36 +1,84 @@
 """
 Database configuration and session management for Internship Opportunity Manager.
 Supports local SQLite database by default, and Supabase / PostgreSQL via DATABASE_URL.
+Engineered for reliable execution across local, Docker, and Vercel Serverless environments.
 """
 
 import os
+import sys
+import tempfile
 from pathlib import Path
 from typing import Generator
 from sqlmodel import Session, SQLModel, create_engine, select
-from models import Internship
+from sqlalchemy.pool import StaticPool
 
-# Database path configuration
+# Ensure backend directory and project root are in sys.path
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_DB_FILE = BASE_DIR / "internships.db"
-DEFAULT_SQLITE_URL = f"sqlite:///{DEFAULT_DB_FILE}"
+ROOT_DIR = BASE_DIR.parent
+for p in [str(BASE_DIR), str(ROOT_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-# Read environment variables (e.g. Supabase PostgreSQL URL)
-database_url = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DATABASE_URL") or DEFAULT_SQLITE_URL
-
-# Fix SQLAlchemy URL scheme if provided as "postgres://"
-if database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
-
-# SQLite requires check_same_thread=False for FastAPI concurrency
-connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-
-engine = create_engine(database_url, echo=False, connect_args=connect_args)
+try:
+    from models import Internship
+except ImportError:
+    from backend.models import Internship
 
 
-def get_session() -> Generator[Session, None, None]:
-    """Dependency injection for FastAPI endpoints to get a DB session."""
-    with Session(engine) as session:
-        yield session
+def init_engine():
+    """
+    Initializes a resilient database engine.
+    1. Checks external DATABASE_URL (e.g. Supabase Postgres)
+    2. Checks SQLite candidate file locations (temp directory or local)
+    3. Seamlessly falls back to StaticPool SQLite in-memory if disk access is restricted
+    """
+    # 1. External DATABASE_URL (Supabase/PostgreSQL) if configured
+    env_db_url = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DATABASE_URL")
+    if env_db_url:
+        if env_db_url.startswith("postgres://"):
+            env_db_url = env_db_url.replace("postgres://", "postgresql://", 1)
+        try:
+            eng = create_engine(env_db_url, echo=False)
+            with eng.connect():
+                pass
+            return eng
+        except Exception as e:
+            print(f"DATABASE_URL connect failed: {e}")
+
+    # 2. SQLite candidates
+    temp_dir = Path(tempfile.gettempdir())
+    candidates = []
+
+    # On Vercel / AWS Lambda serverless, prioritize /tmp and system temp directory
+    if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.getenv("VERCEL_ENV"):
+        candidates.append(temp_dir / "internships.db")
+        candidates.append(Path("/tmp/internships.db"))
+    else:
+        candidates.append(BASE_DIR / "internships.db")
+        candidates.append(temp_dir / "internships.db")
+
+    for db_path in candidates:
+        try:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            norm = str(db_path.resolve()).replace("\\", "/")
+            url = f"sqlite:///{norm}" if not norm.startswith("/") else f"sqlite://{norm}"
+            eng = create_engine(url, echo=False, connect_args={"check_same_thread": False})
+            with eng.connect():
+                pass
+            return eng
+        except Exception as e:
+            print(f"SQLite file engine failed for {db_path}: {e}")
+
+    # 3. Guaranteed in-memory fallback with StaticPool so state persists across connections
+    return create_engine(
+        "sqlite:///:memory:",
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
+    )
+
+
+engine = init_engine()
 
 
 SAMPLE_INTERNSHIPS = [
@@ -84,17 +132,37 @@ SAMPLE_INTERNSHIPS = [
 
 def seed_data(session: Session) -> None:
     """Populates sample internships if the database table is empty."""
-    existing = session.exec(select(Internship)).first()
-    if not existing:
-        for item in SAMPLE_INTERNSHIPS:
-            internship = Internship(**item)
-            session.add(internship)
-        session.commit()
-        print("Initialized database with realistic seed internships.")
+    try:
+        existing = session.exec(select(Internship)).first()
+        if not existing:
+            for item in SAMPLE_INTERNSHIPS:
+                internship = Internship(**item)
+                session.add(internship)
+            session.commit()
+    except Exception as e:
+        print(f"Seed data notice: {e}")
 
 
 def init_db() -> None:
     """Create all tables and seed initial records on application startup."""
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        seed_data(session)
+    try:
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as session:
+            seed_data(session)
+    except Exception as e:
+        print(f"Database init notice: {e}")
+
+
+# Initialize tables and seed records immediately
+init_db()
+
+
+def get_session() -> Generator[Session, None, None]:
+    """Dependency injection for FastAPI endpoints to get a DB session."""
+    try:
+        with Session(engine) as session:
+            yield session
+    except Exception:
+        init_db()
+        with Session(engine) as session:
+            yield session

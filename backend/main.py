@@ -2,24 +2,43 @@
 FastAPI Backend Application for Student Internship & Job Opportunity Platform.
 Course: CSE309 Autumn 2026 Mid Project Assessment (MVP).
 Implements complete CRUD REST APIs for Internship Opportunity Management.
+Designed for local, Docker, and Vercel serverless deployment.
 """
 
-from contextlib import asynccontextmanager
+import sys
 from pathlib import Path
+
+# Ensure backend directory and project root are in sys.path
+BASE_DIR = Path(__file__).resolve().parent
+ROOT_DIR = BASE_DIR.parent
+for p in [str(BASE_DIR), str(ROOT_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+from contextlib import asynccontextmanager
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
-from database import engine, get_session, init_db, SAMPLE_INTERNSHIPS
-from models import (
-    Internship,
-    InternshipCreate,
-    InternshipStats,
-    InternshipUpdate,
-)
+try:
+    from database import engine, get_session, init_db, SAMPLE_INTERNSHIPS
+    from models import (
+        Internship,
+        InternshipCreate,
+        InternshipStats,
+        InternshipUpdate,
+    )
+except ImportError:
+    from backend.database import engine, get_session, init_db, SAMPLE_INTERNSHIPS
+    from backend.models import (
+        Internship,
+        InternshipCreate,
+        InternshipStats,
+        InternshipUpdate,
+    )
 
 
 @asynccontextmanager
@@ -46,11 +65,15 @@ app.add_middleware(
 )
 
 
+# Define an APIRouter so endpoints can be mounted at both "/api" and root ""
+router = APIRouter()
+
+
 # =====================================================================
 # SYSTEM & HEALTH ENDPOINTS
 # =====================================================================
 
-@app.get("/api/health", tags=["Health"])
+@router.get("/health", tags=["Health"])
 def health_check():
     """Health check endpoint to verify backend status."""
     return {
@@ -64,8 +87,8 @@ def health_check():
 # 1. CREATE OPERATION (C in CRUD)
 # =====================================================================
 
-@app.post(
-    "/api/internships",
+@router.post(
+    "/internships",
     response_model=Internship,
     status_code=status.HTTP_201_CREATED,
     tags=["Internships"],
@@ -93,8 +116,8 @@ def create_internship(
 # 2. READ LIST OPERATION (R in CRUD - All Records)
 # =====================================================================
 
-@app.get(
-    "/api/internships",
+@router.get(
+    "/internships",
     response_model=List[Internship],
     status_code=status.HTTP_200_OK,
     tags=["Internships"],
@@ -102,7 +125,7 @@ def create_internship(
 )
 def get_internships(
     search: Optional[str] = Query(None, description="Search by title, company, or location"),
-    status: Optional[str] = Query(None, description="Filter by status: Open or Closed"),
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status: Open or Closed"),
     session: Session = Depends(get_session)
 ):
     """
@@ -113,8 +136,8 @@ def get_internships(
     """
     statement = select(Internship)
 
-    if status and status.lower() != "all":
-        statement = statement.where(Internship.status.ilike(status))
+    if status_filter and status_filter.lower() != "all":
+        statement = statement.where(Internship.status.ilike(status_filter))
 
     results = session.exec(statement).all()
 
@@ -137,8 +160,8 @@ def get_internships(
 # DASHBOARD STATS SUMMARY
 # =====================================================================
 
-@app.get(
-    "/api/internships/stats/summary",
+@router.get(
+    "/internships/stats/summary",
     response_model=InternshipStats,
     tags=["Internships"],
     summary="Get aggregated statistics for the dashboard",
@@ -163,8 +186,8 @@ def get_stats(session: Session = Depends(get_session)):
 # 3. READ SINGLE OPERATION (R in CRUD - One Record)
 # =====================================================================
 
-@app.get(
-    "/api/internships/{internship_id}",
+@router.get(
+    "/internships/{internship_id}",
     response_model=Internship,
     status_code=status.HTTP_200_OK,
     tags=["Internships"],
@@ -192,8 +215,8 @@ def get_internship_by_id(
 # 4. UPDATE OPERATION (U in CRUD)
 # =====================================================================
 
-@app.put(
-    "/api/internships/{internship_id}",
+@router.put(
+    "/internships/{internship_id}",
     response_model=Internship,
     status_code=status.HTTP_200_OK,
     tags=["Internships"],
@@ -231,8 +254,8 @@ def update_internship(
 # 5. DELETE OPERATION (D in CRUD)
 # =====================================================================
 
-@app.delete(
-    "/api/internships/{internship_id}",
+@router.delete(
+    "/internships/{internship_id}",
     status_code=status.HTTP_200_OK,
     tags=["Internships"],
     summary="Delete an internship opportunity",
@@ -266,8 +289,8 @@ def delete_internship(
 # DEMO UTILITY: SEED RESET
 # =====================================================================
 
-@app.post(
-    "/api/internships/seed/reset",
+@router.post(
+    "/internships/seed/reset",
     status_code=status.HTTP_200_OK,
     tags=["Demo Utilities"],
     summary="Reset and re-populate the sample demo internships",
@@ -286,11 +309,16 @@ def reset_seed_data(session: Session = Depends(get_session)):
     return {"message": "Database reset and seeded successfully with 5 sample internships."}
 
 
+# Mount the router under BOTH "/api" AND root "" so requests succeed regardless of Vercel rewrite handling
+app.include_router(router, prefix="/api")
+app.include_router(router, prefix="")
+
+
 # =====================================================================
 # FRONTEND STATIC FILES (Production / Vercel Serving)
 # =====================================================================
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+FRONTEND_DIST_DIR = ROOT_DIR / "frontend" / "dist"
 
-if FRONTEND_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+if FRONTEND_DIST_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST_DIR), html=True), name="frontend")
