@@ -81,8 +81,10 @@ def init_engine():
 engine = init_engine()
 
 
+# Deterministic UUIDs matching frontend seeds for serverless consistency across lambda instances
 SAMPLE_INTERNSHIPS = [
     {
+        "id": "f8d1e2a0-4b5c-4d6e-8f9a-1b2c3d4e5f60",
         "title": "Frontend Developer Intern",
         "company_name": "ABC Technologies",
         "location": "Dhaka, Bangladesh",
@@ -92,6 +94,7 @@ SAMPLE_INTERNSHIPS = [
         "status": "Open",
     },
     {
+        "id": "f8d1e2a0-4b5c-4d6e-8f9a-1b2c3d4e5f61",
         "title": "Python & FastAPI Backend Intern",
         "company_name": "XYZ Software Solutions",
         "location": "Remote",
@@ -101,6 +104,7 @@ SAMPLE_INTERNSHIPS = [
         "status": "Open",
     },
     {
+        "id": "f8d1e2a0-4b5c-4d6e-8f9a-1b2c3d4e5f62",
         "title": "UI/UX Designer Intern",
         "company_name": "Creative Studio Lab",
         "location": "Dhaka, Bangladesh",
@@ -110,6 +114,7 @@ SAMPLE_INTERNSHIPS = [
         "status": "Closed",
     },
     {
+        "id": "f8d1e2a0-4b5c-4d6e-8f9a-1b2c3d4e5f63",
         "title": "Data Science & Analytics Intern",
         "company_name": "FinTech Matrix",
         "location": "Hybrid (Dhaka)",
@@ -119,6 +124,7 @@ SAMPLE_INTERNSHIPS = [
         "status": "Open",
     },
     {
+        "id": "f8d1e2a0-4b5c-4d6e-8f9a-1b2c3d4e5f64",
         "title": "Full Stack Engineering Intern",
         "company_name": "CloudCraft Systems",
         "location": "Remote",
@@ -159,10 +165,5 @@ init_db()
 
 def get_session() -> Generator[Session, None, None]:
     """Dependency injection for FastAPI endpoints to get a DB session."""
-    try:
-        with Session(engine) as session:
-            yield session
-    except Exception:
-        init_db()
-        with Session(engine) as session:
-            yield session
+    with Session(engine) as session:
+        yield session
