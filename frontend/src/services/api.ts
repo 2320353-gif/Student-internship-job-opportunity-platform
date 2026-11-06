@@ -114,11 +114,14 @@ export async function fetchInternships(
 
     const res = await fetch(`${API_BASE_URL}/internships?${params.toString()}`, {
       method: "GET",
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(4000),
     });
 
     if (res.ok) {
       const data: Internship[] = await res.json();
+      if (!search.trim() && status === "All") {
+        saveLocalStorageItems(data);
+      }
       return { data, isOffline: false };
     }
   } catch (err) {
@@ -152,7 +155,7 @@ export async function fetchInternshipById(
   try {
     const res = await fetch(`${API_BASE_URL}/internships/${id}`, {
       method: "GET",
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(4000),
     });
 
     if (res.ok) {
@@ -185,6 +188,9 @@ export async function createInternship(
 
     if (res.ok) {
       const data: Internship = await res.json();
+      const current = getLocalStorageItems().filter((i) => i.id !== data.id);
+      current.unshift(data);
+      saveLocalStorageItems(current);
       return { data, isOffline: false };
     }
   } catch (err) {
@@ -217,6 +223,8 @@ export async function updateInternship(
 
     if (res.ok) {
       const data: Internship = await res.json();
+      const current = getLocalStorageItems().map((i) => (i.id === data.id ? data : i));
+      saveLocalStorageItems(current);
       return { data, isOffline: false };
     }
   } catch (err) {
@@ -248,6 +256,8 @@ export async function deleteInternship(
     });
 
     if (res.ok) {
+      const current = getLocalStorageItems().filter((i) => i.id !== id);
+      saveLocalStorageItems(current);
       return { success: true, isOffline: false };
     }
   } catch (err) {
@@ -264,7 +274,7 @@ export async function fetchStats(): Promise<InternshipStats> {
   try {
     const res = await fetch(`${API_BASE_URL}/internships/stats/summary`, {
       method: "GET",
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(4000),
     });
     if (res.ok) {
       return await res.json();
@@ -287,7 +297,7 @@ export async function resetDatabaseSeed(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/internships/seed/reset`, {
       method: "POST",
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(4000),
     });
     if (res.ok) return;
   } catch {

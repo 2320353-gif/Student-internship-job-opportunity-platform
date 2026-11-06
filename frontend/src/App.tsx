@@ -75,8 +75,20 @@ export default function App() {
         fetchStats(),
       ]);
 
-      setInternships(internshipsRes.data);
-      setStats(statsRes);
+      const items = internshipsRes.data;
+      setInternships(items);
+
+      // Keep dashboard stats counter cards 100% in sync with the opportunities data
+      if (!search.trim() && statusFilter === "All") {
+        setStats({
+          total: items.length,
+          open: items.filter((i) => i.status.toLowerCase() === "open").length,
+          closed: items.filter((i) => i.status.toLowerCase() === "closed").length,
+          remote: items.filter((i) => i.location.toLowerCase().includes("remote")).length,
+        });
+      } else {
+        setStats(statsRes);
+      }
     } catch (err) {
       console.error("Error loading data:", err);
       addToast("error", "Failed to load internship opportunities.");
