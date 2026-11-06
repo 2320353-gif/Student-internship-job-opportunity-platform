@@ -12,7 +12,6 @@ import {
   deleteInternship,
   fetchStats,
   checkBackendHealth,
-  resetDatabaseSeed,
 } from "./services/api";
 import { Navbar } from "./components/Navbar";
 import { StatsCards } from "./components/StatsCards";
@@ -150,23 +149,6 @@ export default function App() {
     }
   }
 
-  // RESET DEMO SEED
-  async function handleResetSeed() {
-    try {
-      setLoading(true);
-      await resetDatabaseSeed();
-      addToast(
-        "info",
-        "Sample database re-seeded with 5 realistic demo opportunities!"
-      );
-      await loadData();
-    } catch (err) {
-      addToast("error", "Failed to reset demo data.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   // Sorted list
   const sortedInternships = useMemo(() => {
     const list = [...internships];
@@ -211,7 +193,7 @@ export default function App() {
           activeStatus={statusFilter}
         />
 
-        {/* Search, Filter, Sort & Reset Bar */}
+        {/* Search, Filter & Sort Bar */}
         <FilterBar
           search={search}
           onSearchChange={setSearch}
@@ -219,7 +201,6 @@ export default function App() {
           onStatusChange={setStatusFilter}
           sortBy={sortBy}
           onSortChange={setSortBy}
-          onResetSeed={handleResetSeed}
           totalResults={sortedInternships.length}
         />
 
@@ -256,9 +237,6 @@ export default function App() {
               >
                 + Post New Internship
               </button>
-              <button className="btn btn-outline" onClick={handleResetSeed}>
-                ⚡ Load Sample Records
-              </button>
             </div>
           </div>
         ) : (
@@ -277,7 +255,6 @@ export default function App() {
             ))}
           </div>
         )}
-
 
       </main>
 

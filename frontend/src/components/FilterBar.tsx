@@ -7,7 +7,6 @@ interface FilterBarProps {
   onStatusChange: (status: string) => void;
   sortBy: string;
   onSortChange: (sort: string) => void;
-  onResetSeed: () => void;
   totalResults: number;
 }
 
@@ -18,7 +17,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onStatusChange,
   sortBy,
   onSortChange,
-  onResetSeed,
   totalResults,
 }) => {
   return (
@@ -72,14 +70,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <option value="deadline">Application Deadline</option>
           </select>
         </div>
-
-        <button
-          className="btn btn-outline btn-reset"
-          onClick={onResetSeed}
-          title="Reset sample data for viva demonstration"
-        >
-          ⚡ Reset Demo Data
-        </button>
       </div>
 
       <div className="results-count-bar">
