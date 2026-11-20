@@ -4,6 +4,7 @@ import {
   InternshipUpdateInput,
   InternshipStats,
 } from "../types/internship";
+import { getAuthHeaders } from "./auth";
 
 const API_BASE_URL = "/api";
 
@@ -181,7 +182,7 @@ export async function createInternship(
   try {
     const res = await fetch(`${API_BASE_URL}/internships`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(4000),
     });
@@ -216,7 +217,7 @@ export async function updateInternship(
   try {
     const res = await fetch(`${API_BASE_URL}/internships/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(4000),
     });
@@ -252,6 +253,7 @@ export async function deleteInternship(
   try {
     const res = await fetch(`${API_BASE_URL}/internships/${id}`, {
       method: "DELETE",
+      headers: getAuthHeaders(),
       signal: AbortSignal.timeout(4000),
     });
 

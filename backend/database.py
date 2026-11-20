@@ -20,9 +20,10 @@ for p in [str(BASE_DIR), str(ROOT_DIR)]:
         sys.path.insert(0, p)
 
 try:
-    from models import Internship
+    from models import Internship, User, RefreshToken
 except ImportError:
-    from backend.models import Internship
+    from backend.models import Internship, User, RefreshToken
+import bcrypt
 
 
 def init_engine():
@@ -137,7 +138,7 @@ SAMPLE_INTERNSHIPS = [
 
 
 def seed_data(session: Session) -> None:
-    """Populates sample internships if the database table is empty."""
+    """Populates sample internships and default demo accounts if database is empty."""
     try:
         existing = session.exec(select(Internship)).first()
         if not existing:
@@ -145,6 +146,40 @@ def seed_data(session: Session) -> None:
                 internship = Internship(**item)
                 session.add(internship)
             session.commit()
+
+        # Seed default demo accounts if not already present
+        demo_password_hash = bcrypt.hashpw(b"password123", bcrypt.gensalt(12)).decode("utf-8")
+        
+        admin_user = session.exec(select(User).where(User.email == "admin@platform.com")).first()
+        if not admin_user:
+            admin_user = User(
+                id="a1000000-0000-0000-0000-000000000001",
+                name="Admin Manager",
+                email="admin@platform.com",
+                hashed_password=demo_password_hash,
+                role="admin",
+                is_banned=False,
+            )
+            session.add(admin_user)
+
+        student_user = session.exec(select(User).where(User.email == "student@university.edu")).first()
+        if not student_user:
+            student_user = User(
+                id="b2000000-0000-0000-0000-000000000002",
+                name="Afrin Sultana",
+                email="student@university.edu",
+                hashed_password=demo_password_hash,
+                role="user",
+                is_banned=False,
+            )
+            session.add(student_user)
+        elif student_user.role != "user":
+            student_user.role = "user"
+            student_user.name = "Afrin Sultana"
+            student_user.hashed_password = demo_password_hash
+            session.add(student_user)
+
+        session.commit()
     except Exception as e:
         print(f"Seed data notice: {e}")
 

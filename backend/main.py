@@ -28,10 +28,12 @@ try:
     from database import init_db
     from routers.health import router as health_router
     from routers.internships import router as internships_router
+    from routers.auth import router as auth_router
 except ImportError:
     from backend.database import init_db
     from backend.routers.health import router as health_router
     from backend.routers.internships import router as internships_router
+    from backend.routers.auth import router as auth_router
 
 
 @asynccontextmanager
@@ -103,6 +105,9 @@ app.include_router(health_router, prefix="")
 
 app.include_router(internships_router, prefix="/api")
 app.include_router(internships_router, prefix="")
+
+app.include_router(auth_router, prefix="/api")
+app.include_router(auth_router, prefix="")
 
 
 # =====================================================================

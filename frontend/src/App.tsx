@@ -1,4 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { User } from "./types/auth";
+import * as authService from "./services/auth";
+import { LoginPage } from "./components/LoginPage";
 import {
   Internship,
   InternshipCreateInput,
@@ -23,6 +26,7 @@ import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
 import { Toast, ToastMessage } from "./components/Toast";
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getStoredUser());
   const [internships, setInternships] = useState<Internship[]>([]);
   const [stats, setStats] = useState<InternshipStats>({
     total: 0,
@@ -188,6 +192,11 @@ export default function App() {
     return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
   }, [internships, sortBy]);
 
+  // Require login before viewing the dashboard
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={(user) => setCurrentUser(user)} />;
+  }
+
   return (
     <div className="app-shell">
       <Navbar
@@ -197,6 +206,11 @@ export default function App() {
         }}
         isBackendConnected={isBackendConnected}
         onRefresh={loadData}
+        currentUser={currentUser}
+        onLogout={() => {
+          authService.logout();
+          setCurrentUser(null);
+        }}
       />
 
       <main className="main-content">
