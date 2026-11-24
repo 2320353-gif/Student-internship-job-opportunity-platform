@@ -68,6 +68,25 @@ def get_current_user(
     return user
 
 
+def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
+    session: Session = Depends(get_session)
+) -> Optional[User]:
+    """Returns the authenticated user if valid token present, otherwise None."""
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+        if not payload or not payload.get("sub"):
+            return None
+        user = session.exec(select(User).where(User.id == payload.get("sub"))).first()
+        if user and not user.is_banned:
+            return user
+        return None
+    except Exception:
+        return None
+
+
 def get_current_active_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
@@ -83,10 +102,11 @@ def get_current_active_user(
 def require_admin(
     current_user: User = Depends(get_current_active_user)
 ) -> User:
-    """Requires the authenticated user to hold the 'admin' role."""
-    if current_user.role != "admin":
+    """Requires the authenticated user to hold admin or security officer privileges."""
+    allowed = ["admin", "security_officer", "main_admin"]
+    if current_user.role not in allowed and not getattr(current_user, "is_main_admin", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: Admin privileges required"
+            detail="Access forbidden: Administrative privileges required"
         )
     return current_user

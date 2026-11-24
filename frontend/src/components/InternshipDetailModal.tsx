@@ -1,8 +1,10 @@
 import React from "react";
 import { Internship } from "../types/internship";
+import { User } from "../types/auth";
 
 interface InternshipDetailModalProps {
   internship: Internship | null;
+  currentUser?: User | null;
   onClose: () => void;
   onEdit: (item: Internship) => void;
   onDelete: (item: Internship) => void;
@@ -10,6 +12,7 @@ interface InternshipDetailModalProps {
 
 export const InternshipDetailModal: React.FC<InternshipDetailModalProps> = ({
   internship,
+  currentUser,
   onClose,
   onEdit,
   onDelete,
@@ -18,6 +21,17 @@ export const InternshipDetailModal: React.FC<InternshipDetailModalProps> = ({
 
   const isOpen = internship.status.toLowerCase() === "open";
   const isRemote = internship.location.toLowerCase().includes("remote");
+  const isOwner = Boolean(currentUser && internship.user_id && currentUser.id === internship.user_id);
+  const isMainAdmin = Boolean(currentUser && (currentUser.email === "admin@platform.com" || currentUser.is_main_admin));
+  const isSecurityOfficer = Boolean(currentUser && (currentUser.email === "admin2@platform.com" || currentUser.role === "security_officer" || currentUser.name.toLowerCase().includes("security")));
+  const isPostByMainAdmin = Boolean(internship.user_id && internship.user_id === "a1000000-0000-0000-0000-000000000001");
+
+  const canModify = Boolean(
+    isOwner ||
+    isMainAdmin ||
+    (isSecurityOfficer && !isPostByMainAdmin) ||
+    (!internship.user_id && (isMainAdmin || isSecurityOfficer || currentUser?.role === "admin"))
+  );
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -93,25 +107,29 @@ export const InternshipDetailModal: React.FC<InternshipDetailModalProps> = ({
         </div>
 
         <div className="modal-footer">
-          <button
-            className="btn btn-danger-outline"
-            onClick={() => {
-              onClose();
-              onDelete(internship);
-            }}
-          >
-            🗑 Delete
-          </button>
-          <div className="modal-footer-right">
+          {canModify && (
             <button
-              className="btn btn-secondary"
+              className="btn btn-danger-outline"
               onClick={() => {
                 onClose();
-                onEdit(internship);
+                onDelete(internship);
               }}
             >
-              ✏️ Edit Opportunity
+              🗑 Delete
             </button>
+          )}
+          <div className="modal-footer-right" style={!canModify ? { width: "100%", justifyContent: "flex-end" } : undefined}>
+            {canModify && (
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  onClose();
+                  onEdit(internship);
+                }}
+              >
+                ✏️ Edit Opportunity
+              </button>
+            )}
             <button className="btn btn-primary" onClick={onClose}>
               Done
             </button>

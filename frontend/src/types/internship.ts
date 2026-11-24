@@ -7,6 +7,8 @@ export interface Internship {
   salary: string;
   deadline: string;
   status: "Open" | "Closed" | string;
+  user_id?: string;
+  group_id?: string;
   created_at: string;
 }
 
@@ -18,6 +20,7 @@ export interface InternshipCreateInput {
   salary: string;
   deadline: string;
   status: "Open" | "Closed" | string;
+  group_id?: string;
 }
 
 export interface InternshipUpdateInput {
@@ -28,6 +31,7 @@ export interface InternshipUpdateInput {
   salary?: string;
   deadline?: string;
   status?: "Open" | "Closed" | string;
+  group_id?: string;
 }
 
 export interface InternshipStats {

@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 try:
     from database import SAMPLE_INTERNSHIPS
     from models import (
+        AuditLog,
         Internship,
         InternshipCreate,
         InternshipStats,
@@ -28,6 +29,7 @@ try:
 except ImportError:
     from backend.database import SAMPLE_INTERNSHIPS
     from backend.models import (
+        AuditLog,
         Internship,
         InternshipCreate,
         InternshipStats,
@@ -36,17 +38,50 @@ except ImportError:
 
 
 # =====================================================================
+# AUDIT LOGGING HELPER (Part 5)
+# =====================================================================
+
+def record_audit_event(
+    session: Session,
+    action: str,
+    details: str,
+    user_id: Optional[str] = None,
+    user_email: Optional[str] = None,
+    ip_address: str = "127.0.0.1",
+) -> AuditLog:
+    """Records security and administrative events to the audit trail."""
+    try:
+        log_entry = AuditLog(
+            user_id=user_id,
+            user_email=user_email,
+            action=action,
+            details=details,
+            ip_address=ip_address,
+        )
+        session.add(log_entry)
+        session.commit()
+        return log_entry
+    except Exception as e:
+        print(f"Audit log recording error: {e}")
+        return None
+
+
+# =====================================================================
 # 1. CREATE (C in CRUD)
 # =====================================================================
 
-def create_internship(session: Session, data: InternshipCreate) -> Internship:
+def create_internship(
+    session: Session,
+    data: InternshipCreate,
+    user_id: Optional[str] = None,
+) -> Internship:
     """
-    Creates a new internship record.
-    - Validates payload using SQLModel
-    - Persists record to the database
-    - Returns the newly created internship
+    Creates a new internship record and associates with user_id.
     """
-    internship = Internship.model_validate(data)
+    item_dict = data.model_dump()
+    if user_id:
+        item_dict["user_id"] = user_id
+    internship = Internship(**item_dict)
     session.add(internship)
     session.commit()
     session.refresh(internship)
@@ -61,17 +96,22 @@ def get_internships(
     session: Session,
     search: Optional[str] = None,
     status_filter: Optional[str] = None,
+    user_id: Optional[str] = None,
+    group_id: Optional[str] = None,
 ) -> List[Internship]:
     """
-    Retrieves all internship opportunities from the database.
-    - Supports optional keyword search in title, company_name, location, description
-    - Supports optional status filtering (Open / Closed)
-    - Returns sorted by created_at descending (newest first)
+    Retrieves internship opportunities with optional user or group filters.
     """
     statement = select(Internship)
 
     if status_filter and status_filter.lower() != "all":
         statement = statement.where(Internship.status.ilike(status_filter))
+
+    if user_id:
+        statement = statement.where(Internship.user_id == user_id)
+
+    if group_id:
+        statement = statement.where(Internship.group_id == group_id)
 
     results = session.exec(statement).all()
 

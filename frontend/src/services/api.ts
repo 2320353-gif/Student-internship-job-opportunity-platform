@@ -4,6 +4,14 @@ import {
   InternshipUpdateInput,
   InternshipStats,
 } from "../types/internship";
+import { User } from "../types/auth";
+import {
+  GroupRead,
+  GroupCreateInput,
+  GroupMemberAddInput,
+  GroupMemberRead,
+} from "../types/group";
+import { AdminOverviewStats, AuditLogItem } from "../types/admin";
 import { getAuthHeaders } from "./auth";
 
 const API_BASE_URL = "/api";
@@ -106,21 +114,26 @@ export async function checkBackendHealth(): Promise<boolean> {
 // 1. READ LIST (R in CRUD)
 export async function fetchInternships(
   search = "",
-  status = "All"
+  status = "All",
+  myOnly = false,
+  groupId?: string
 ): Promise<{ data: Internship[]; isOffline: boolean }> {
   try {
     const params = new URLSearchParams();
     if (search.trim()) params.append("search", search.trim());
     if (status && status !== "All") params.append("status", status);
+    if (myOnly) params.append("my_only", "true");
+    if (groupId) params.append("group_id", groupId);
 
     const res = await fetch(`${API_BASE_URL}/internships?${params.toString()}`, {
       method: "GET",
+      headers: getAuthHeaders(),
       signal: AbortSignal.timeout(4000),
     });
 
     if (res.ok) {
       const data: Internship[] = await res.json();
-      if (!search.trim() && status === "All") {
+      if (!search.trim() && status === "All" && !myOnly && !groupId) {
         saveLocalStorageItems(data);
       }
       return { data, isOffline: false };
@@ -307,3 +320,133 @@ export async function resetDatabaseSeed(): Promise<void> {
   }
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(FALLBACK_SEED));
 }
+
+// ============================================================================
+// SHARED GROUPS & COLLABORATION API (Part 4)
+// ============================================================================
+
+export async function fetchGroups(): Promise<GroupRead[]> {
+  const res = await fetch(`${API_BASE_URL}/groups`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to load groups");
+  return await res.json();
+}
+
+export async function fetchGroupDetails(groupId: string): Promise<GroupRead> {
+  const res = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to load group details");
+  return await res.json();
+}
+
+export async function createGroup(data: GroupCreateInput): Promise<GroupRead> {
+  const res = await fetch(`${API_BASE_URL}/groups`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create group");
+  }
+  return await res.json();
+}
+
+export async function addGroupMember(
+  groupId: string,
+  data: GroupMemberAddInput
+): Promise<GroupMemberRead> {
+  const res = await fetch(`${API_BASE_URL}/groups/${groupId}/members`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to add member to group");
+  }
+  return await res.json();
+}
+
+export async function removeGroupMember(groupId: string, userId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/groups/${groupId}/members/${userId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to remove group member");
+}
+
+export async function deleteGroup(groupId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to delete group");
+  }
+}
+
+// ============================================================================
+// ADMIN COMMAND CENTER API (Part 5)
+// ============================================================================
+
+export async function fetchAdminOverview(): Promise<AdminOverviewStats> {
+  const res = await fetch(`${API_BASE_URL}/admin/overview`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to fetch admin overview");
+  return await res.json();
+}
+
+export async function fetchAllUsers(search?: string, role?: string): Promise<User[]> {
+  const params = new URLSearchParams();
+  if (search) params.append("search", search);
+  if (role) params.append("role", role);
+
+  const res = await fetch(`${API_BASE_URL}/admin/users?${params.toString()}`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to fetch users");
+  return await res.json();
+}
+
+export async function toggleUserBan(userId: string): Promise<User> {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/ban`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to toggle ban status");
+  }
+  return await res.json();
+}
+
+export async function toggleUserRole(userId: string): Promise<User> {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/role`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to toggle role");
+  }
+  return await res.json();
+}
+
+export async function fetchAuditLogs(limit = 100): Promise<AuditLogItem[]> {
+  const res = await fetch(`${API_BASE_URL}/admin/audit-logs?limit=${limit}`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to fetch audit trail");
+  return await res.json();
+}
+

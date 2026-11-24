@@ -196,25 +196,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Quick Demo Logins for Teachers / Evaluators */}
           {!isSignup && (
             <div className="demo-credentials-box">
-              <div className="demo-credentials-title">⚡ Quick Demo One-Click Login</div>
-              <div className="demo-btns-grid">
+              <div className="demo-credentials-title">⚡ Quick Demo One-Click Access</div>
+              <div className="demo-btns-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: "0.4rem" }}>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleQuickDemo("admin@platform.com", "password123")}
+                  className="btn btn-secondary btn-sm"
+                  title="Log in as Main Admin (Admin Manager)"
+                  style={{ fontSize: "0.74rem", padding: "0.35rem 0.4rem", whiteSpace: "nowrap" }}
+                >
+                  👑 Admin Manager
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleQuickDemo("admin2@platform.com", "password123")}
+                  className="btn btn-secondary btn-sm"
+                  title="Log in as Security Officer"
+                  style={{ fontSize: "0.74rem", padding: "0.35rem 0.4rem", whiteSpace: "nowrap" }}
+                >
+                  🛡️ Security Officer
+                </button>
                 <button
                   type="button"
                   disabled={loading}
                   onClick={() => handleQuickDemo("student@university.edu", "password123")}
                   className="btn btn-secondary btn-sm"
                   title="Log in as Student"
+                  style={{ fontSize: "0.74rem", padding: "0.35rem 0.4rem", whiteSpace: "nowrap" }}
                 >
                   🎓 Student Demo
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleQuickDemo("admin@platform.com", "password123")}
-                  className="btn btn-secondary btn-sm"
-                  title="Log in as Admin"
-                >
-                  🛡️ Admin Demo
                 </button>
               </div>
             </div>

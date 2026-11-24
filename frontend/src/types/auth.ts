@@ -2,7 +2,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: "user" | "admin" | string;
+  role: "user" | "admin" | "security_officer" | string;
+  is_main_admin?: boolean;
   is_banned: boolean;
   created_at: string;
 }

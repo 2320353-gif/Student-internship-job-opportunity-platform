@@ -24,6 +24,8 @@ import { InternshipDetailModal } from "./components/InternshipDetailModal";
 import { InternshipFormModal } from "./components/InternshipFormModal";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
 import { Toast, ToastMessage } from "./components/Toast";
+import { GroupManagementModal } from "./components/GroupManagementModal";
+import { AdminDashboardModal } from "./components/AdminDashboardModal";
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getStoredUser());
@@ -41,6 +43,9 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [sortBy, setSortBy] = useState("newest");
+  const [myOnly, setMyOnly] = useState(false);
+  const [activeGroupId, setActiveGroupId] = useState<string | undefined>(undefined);
+  const [activeGroupName, setActiveGroupName] = useState<string | undefined>(undefined);
 
   // Modals state
   const [selectedDetail, setSelectedDetail] = useState<Internship | null>(null);
@@ -50,6 +55,8 @@ export default function App() {
   );
   const [deleteTarget, setDeleteTarget] = useState<Internship | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   // Notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -80,7 +87,7 @@ export default function App() {
       setIsBackendConnected(isOnline);
 
       const [internshipsRes, statsRes] = await Promise.all([
-        fetchInternships(search, statusFilter),
+        fetchInternships(search, statusFilter, myOnly, activeGroupId),
         fetchStats(),
       ]);
 
@@ -88,7 +95,7 @@ export default function App() {
       setInternships(items);
 
       // Keep dashboard stats counter cards 100% in sync with the opportunities data
-      if (!search.trim() && statusFilter === "All") {
+      if (!search.trim() && statusFilter === "All" && !myOnly && !activeGroupId) {
         setStats({
           total: items.length,
           open: items.filter((i) => i.status.toLowerCase() === "open").length,
@@ -104,7 +111,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, myOnly, activeGroupId]);
 
   useEffect(() => {
     loadData();
@@ -211,15 +218,61 @@ export default function App() {
           authService.logout();
           setCurrentUser(null);
         }}
+        onOpenGroups={() => setIsGroupModalOpen(true)}
+        onOpenAdmin={() => setIsAdminModalOpen(true)}
       />
 
       <main className="main-content">
-        <div className="page-header">
+        <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h2 className="page-title">Internship Opportunity Manager</h2>
             <p className="page-subtitle">
               Manage student job listings, internships, requirements, and deadlines.
             </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+            <div className="status-tabs">
+              <button
+                type="button"
+                className={`tab-btn ${!myOnly && !activeGroupId ? "tab-active" : ""}`}
+                onClick={() => {
+                  setMyOnly(false);
+                  setActiveGroupId(undefined);
+                  setActiveGroupName(undefined);
+                }}
+              >
+                🌐 All Opportunities
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${myOnly ? "tab-active" : ""}`}
+                onClick={() => {
+                  setMyOnly(true);
+                  setActiveGroupId(undefined);
+                  setActiveGroupName(undefined);
+                }}
+              >
+                👤 My Postings
+              </button>
+            </div>
+
+            {activeGroupId && (
+              <span className="badge badge-indigo" style={{ padding: "0.35rem 0.65rem", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                <span>👥 Group: {activeGroupName || "Selected"}</span>
+                <button
+                  type="button"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 700, padding: 0 }}
+                  onClick={() => {
+                    setActiveGroupId(undefined);
+                    setActiveGroupName(undefined);
+                  }}
+                  title="Clear group filter"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
           </div>
         </div>
 
@@ -282,6 +335,7 @@ export default function App() {
               <InternshipCard
                 key={internship.id}
                 internship={internship}
+                currentUser={currentUser}
                 onViewDetails={(item) => setSelectedDetail(item)}
                 onEdit={(item) => {
                   setEditingInternship(item);
@@ -298,6 +352,7 @@ export default function App() {
       {/* MODALS */}
       <InternshipDetailModal
         internship={selectedDetail}
+        currentUser={currentUser}
         onClose={() => setSelectedDetail(null)}
         onEdit={(item) => {
           setEditingInternship(item);
@@ -323,6 +378,28 @@ export default function App() {
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
       />
+
+      {/* Part 4: Study Groups Modal */}
+      <GroupManagementModal
+        currentUser={currentUser}
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        activeGroupId={activeGroupId}
+        onSelectGroupFilter={(groupId, groupName) => {
+          setActiveGroupId(groupId);
+          setActiveGroupName(groupName);
+          setMyOnly(false);
+        }}
+      />
+
+      {/* Part 5: Admin Command Center Modal (Admin Manager & Security Officer) */}
+      {(currentUser.role === "admin" || currentUser.role === "security_officer" || currentUser.is_main_admin || currentUser.email === "admin2@platform.com") && (
+        <AdminDashboardModal
+          currentUser={currentUser}
+          isOpen={isAdminModalOpen}
+          onClose={() => setIsAdminModalOpen(false)}
+        />
+      )}
 
       {/* TOAST ALERTS */}
       <Toast toasts={toasts} onDismiss={removeToast} />

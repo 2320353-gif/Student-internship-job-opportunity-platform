@@ -9,6 +9,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Generator
+from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlalchemy.pool import StaticPool
 
@@ -20,9 +21,9 @@ for p in [str(BASE_DIR), str(ROOT_DIR)]:
         sys.path.insert(0, p)
 
 try:
-    from models import Internship, User, RefreshToken
+    from models import Internship, User, RefreshToken, Group, GroupMember, AuditLog
 except ImportError:
-    from backend.models import Internship, User, RefreshToken
+    from backend.models import Internship, User, RefreshToken, Group, GroupMember, AuditLog
 import bcrypt
 
 
@@ -138,55 +139,134 @@ SAMPLE_INTERNSHIPS = [
 
 
 def seed_data(session: Session) -> None:
-    """Populates sample internships and default demo accounts if database is empty."""
+    """Populates sample internships, teacher demo accounts, and shared group if database is empty."""
     try:
+        demo_password_hash = bcrypt.hashpw(b"password123", bcrypt.gensalt(12)).decode("utf-8")
+
+        # 1. Five Teacher-Mandated Demo Accounts
+        accounts = [
+            ("a1000000-0000-0000-0000-000000000001", "Admin Manager", "admin@platform.com", "admin", True),
+            ("a1000000-0000-0000-0000-000000000002", "Security Officer", "admin2@platform.com", "admin", False),
+            ("b2000000-0000-0000-0000-000000000001", "Afrin Sultana", "student@university.edu", "user", False),
+            ("b2000000-0000-0000-0000-000000000002", "Rahim Ahmed", "student2@university.edu", "user", False),
+            ("b2000000-0000-0000-0000-000000000003", "Karim Hasan", "student3@university.edu", "user", False),
+        ]
+
+        for user_id, name, email, role, is_main in accounts:
+            user = session.exec(select(User).where(User.email == email)).first()
+            if not user:
+                user = User(
+                    id=user_id,
+                    name=name,
+                    email=email,
+                    hashed_password=demo_password_hash,
+                    role=role,
+                    is_main_admin=is_main,
+                    is_banned=False,
+                )
+                session.add(user)
+            else:
+                # Update existing records to reflect main admin status and accurate names
+                user.name = name
+                user.is_main_admin = is_main
+                session.add(user)
+
+        session.commit()
+
+        # 2. Seed 1 Shared Group with Mixed Member Permissions (Teacher Requirement)
+        group_id = "c3000000-0000-0000-0000-000000000001"
+        group = session.exec(select(Group).where(Group.id == group_id)).first()
+        if not group:
+            group = Group(
+                id=group_id,
+                name="Career Builders Club",
+                description="Collaborative student initiative for tech internships and engineering jobs",
+                owner_id="b2000000-0000-0000-0000-000000000001",  # Owned by Afrin
+            )
+            session.add(group)
+            session.commit()
+
+            # Member 1: Afrin (Owner - full permissions)
+            session.add(GroupMember(
+                group_id=group_id,
+                user_id="b2000000-0000-0000-0000-000000000001",
+                can_create=True,
+                can_edit=True,
+                can_assign=True
+            ))
+            # Member 2: Rahim (Editor & Assigner)
+            session.add(GroupMember(
+                group_id=group_id,
+                user_id="b2000000-0000-0000-0000-000000000002",
+                can_create=True,
+                can_edit=True,
+                can_assign=True
+            ))
+            # Member 3: Karim (Poster only)
+            session.add(GroupMember(
+                group_id=group_id,
+                user_id="b2000000-0000-0000-0000-000000000003",
+                can_create=True,
+                can_edit=False,
+                can_assign=False
+            ))
+            session.commit()
+
+        # 3. Seed Sample Internships with User Ownership
         existing = session.exec(select(Internship)).first()
         if not existing:
             for item in SAMPLE_INTERNSHIPS:
-                internship = Internship(**item)
+                internship_data = item.copy()
+                internship_data["user_id"] = "b2000000-0000-0000-0000-000000000001"  # Owned by Afrin
+                internship_data["group_id"] = group_id
+                internship = Internship(**internship_data)
                 session.add(internship)
             session.commit()
 
-        # Seed default demo accounts if not already present
-        demo_password_hash = bcrypt.hashpw(b"password123", bcrypt.gensalt(12)).decode("utf-8")
-        
-        admin_user = session.exec(select(User).where(User.email == "admin@platform.com")).first()
-        if not admin_user:
-            admin_user = User(
-                id="a1000000-0000-0000-0000-000000000001",
-                name="Admin Manager",
-                email="admin@platform.com",
-                hashed_password=demo_password_hash,
-                role="admin",
-                is_banned=False,
-            )
-            session.add(admin_user)
+        # 4. Initial Audit Log
+        existing_log = session.exec(select(AuditLog)).first()
+        if not existing_log:
+            session.add(AuditLog(
+                action="SYSTEM_INIT",
+                details="Platform database initialized with 5 demo accounts and 1 shared group.",
+                user_email="system@opportunityhub.internal",
+                ip_address="127.0.0.1"
+            ))
+            session.commit()
 
-        student_user = session.exec(select(User).where(User.email == "student@university.edu")).first()
-        if not student_user:
-            student_user = User(
-                id="b2000000-0000-0000-0000-000000000002",
-                name="Afrin Sultana",
-                email="student@university.edu",
-                hashed_password=demo_password_hash,
-                role="user",
-                is_banned=False,
-            )
-            session.add(student_user)
-        elif student_user.role != "user":
-            student_user.role = "user"
-            student_user.name = "Afrin Sultana"
-            student_user.hashed_password = demo_password_hash
-            session.add(student_user)
-
-        session.commit()
     except Exception as e:
         print(f"Seed data notice: {e}")
+
+
+def auto_migrate(eng) -> None:
+    """Safely adds missing columns to existing SQLite tables if schema was updated."""
+    try:
+        with eng.connect() as conn:
+            # Check columns in internships
+            res = conn.execute(text("PRAGMA table_info(internships);")).fetchall()
+            cols = [r[1] for r in res] if res else []
+            if cols:
+                if "user_id" not in cols:
+                    conn.execute(text("ALTER TABLE internships ADD COLUMN user_id VARCHAR;"))
+                if "group_id" not in cols:
+                    conn.execute(text("ALTER TABLE internships ADD COLUMN group_id VARCHAR;"))
+                conn.commit()
+
+            # Check columns in users
+            user_res = conn.execute(text("PRAGMA table_info(users);")).fetchall()
+            user_cols = [r[1] for r in user_res] if user_res else []
+            if user_cols:
+                if "is_main_admin" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN is_main_admin BOOLEAN DEFAULT 0;"))
+                conn.commit()
+    except Exception as e:
+        print(f"Migration notice: {e}")
 
 
 def init_db() -> None:
     """Create all tables and seed initial records on application startup."""
     try:
+        auto_migrate(engine)
         SQLModel.metadata.create_all(engine)
         with Session(engine) as session:
             seed_data(session)
