@@ -38,7 +38,9 @@ def init_engine():
     env_db_url = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DATABASE_URL")
     if env_db_url:
         if env_db_url.startswith("postgres://"):
-            env_db_url = env_db_url.replace("postgres://", "postgresql://", 1)
+            env_db_url = env_db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif env_db_url.startswith("postgresql://") and "+psycopg" not in env_db_url:
+            env_db_url = env_db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
         try:
             eng = create_engine(env_db_url, echo=False)
             with eng.connect():
@@ -240,6 +242,8 @@ def seed_data(session: Session) -> None:
 
 def auto_migrate(eng) -> None:
     """Safely adds missing columns to existing SQLite tables if schema was updated."""
+    if eng.dialect.name != "sqlite":
+        return
     try:
         with eng.connect() as conn:
             # Check columns in internships
